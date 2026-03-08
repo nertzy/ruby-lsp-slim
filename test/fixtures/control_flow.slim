@@ -1,0 +1,6 @@
+- if current_user
+  h1 Welcome
+  = current_user.name
+- else
+  = link_to "Sign in", login_path
+- end
