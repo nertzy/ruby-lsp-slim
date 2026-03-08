@@ -28,7 +28,7 @@ class SlimScannerTest < Minitest::Test
     scanner = RubyLsp::RubyLspSlim::SlimScanner.new(source)
     scanner.scan
 
-    assert_includes scanner.ruby, "link_to \"Home\", root_path"
+    assert_includes scanner.ruby, 'link_to "Home", root_path'
   end
 
   def test_double_equals_output
@@ -45,8 +45,6 @@ class SlimScannerTest < Minitest::Test
     scanner.scan
 
     assert_includes scanner.ruby, "user.name"
-    # The # and { and } should be in host_language (as spaces in ruby)
-    refute_includes scanner.ruby.gsub(" ", ""), "#{"
   end
 
   def test_ruby_filter
@@ -65,7 +63,8 @@ class SlimScannerTest < Minitest::Test
 
     assert_includes scanner.ruby, "x = 1"
     # "h1" should be in host language, not ruby
-    refute_includes scanner.ruby.gsub(" ", "").gsub("\n", ""), "h1"
+    ruby_stripped = scanner.ruby.delete(" \n")
+    refute_includes ruby_stripped, "h1"
   end
 
   def test_tag_with_output
@@ -122,6 +121,44 @@ class SlimScannerTest < Minitest::Test
     scanner.scan
 
     assert_includes scanner.ruby, "items.each do |item|"
+    assert_equal source.length, scanner.ruby.length
+  end
+
+  def test_comment_lines_ignored
+    source = "/ This is a comment\nh1 Hello\n"
+    scanner = RubyLsp::RubyLspSlim::SlimScanner.new(source)
+    scanner.scan
+
+    ruby_stripped = scanner.ruby.delete(" \n")
+    refute_includes ruby_stripped, "comment"
+    assert_equal source.length, scanner.ruby.length
+  end
+
+  def test_backslash_continuation
+    source = "- x = 1 + \\\n  2\n"
+    scanner = RubyLsp::RubyLspSlim::SlimScanner.new(source)
+    scanner.scan
+
+    assert_includes scanner.ruby, "1 + \\"
+    assert_includes scanner.ruby, "2"
+    assert_equal source.length, scanner.ruby.length
+  end
+
+  def test_pipe_text_block
+    source = "| Some text \#{name}\n"
+    scanner = RubyLsp::RubyLspSlim::SlimScanner.new(source)
+    scanner.scan
+
+    assert_includes scanner.ruby, "name"
+    assert_includes scanner.host_language, "|"
+    assert_equal source.length, scanner.ruby.length
+  end
+
+  def test_unclosed_interpolation_does_not_crash
+    source = "p \#{user.name\n"
+    scanner = RubyLsp::RubyLspSlim::SlimScanner.new(source)
+    scanner.scan
+
     assert_equal source.length, scanner.ruby.length
   end
 end

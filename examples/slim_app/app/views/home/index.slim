@@ -1,0 +1,22 @@
+h1 Welcome to the Slim App
+
+- if current_user
+  p Hello, #{current_user.display_name}!
+
+  - if current_user.admin?
+    .admin-panel
+      h2 Admin Dashboard
+      p You have admin access.
+      = link_to "Manage Users", "/users"
+  - else
+    p You are logged in as a regular user.
+- else
+  p Please sign in to continue.
+  = link_to "Sign In", "/login"
+
+section.features
+  h2 Features
+  ul
+    - ["Hover", "Go to Definition", "Completion", "Diagnostics"].each do |feature|
+      li= feature
+ 

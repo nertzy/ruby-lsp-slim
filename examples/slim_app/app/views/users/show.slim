@@ -1,0 +1,32 @@
+- user = User.all.first
+
+h1= user.display_name
+
+.user-profile
+  dl
+    dt Email
+    dd= user.email
+
+    dt Role
+    dd= user.role
+
+    dt Member Since
+    dd= user.created_at.strftime("%B %d, %Y")
+
+  - if user.admin?
+    .badge Admin
+
+ruby:
+  stats = {
+    posts: 42,
+    comments: 128,
+    likes: 256
+  }
+
+h2 Activity
+dl
+  - stats.each do |label, count|
+    dt= label.to_s.capitalize
+    dd= count
+
+= link_to "Back to Users", "/users"

@@ -1,0 +1,24 @@
+h1 Users
+
+- users = User.all
+
+p= pluralize(users.length, "user")
+
+table
+  thead
+    tr
+      th Name
+      th Email
+      th Role
+      th Joined
+  tbody
+    - users.each do |user|
+      tr
+        td= user.name
+        td= user.email
+        td= user.role
+        td= time_ago_in_words(user.created_at)
+
+- if current_user.admin?
+  .actions
+    = link_to "Add User", "/users/new"

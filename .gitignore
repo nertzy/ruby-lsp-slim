@@ -7,4 +7,12 @@
 /spec/reports/
 /tmp/
 *.gem
+*.vsix
 Gemfile.lock
+
+# VS Code extension
+vscode/node_modules/
+vscode/out/
+
+# Example app
+examples/slim_app/.ruby-lsp/

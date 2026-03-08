@@ -1,0 +1,47 @@
+{
+  "name": "ruby-lsp-slim",
+  "displayName": "Ruby LSP Slim",
+  "description": "Slim template support for Ruby LSP — hover, go-to-definition, completion, and more for Ruby code in .slim files",
+  "version": "0.1.0",
+  "publisher": "afomera",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/afomera/ruby-lsp-slim"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:slim",
+    "workspaceContains:**/*.slim"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "slim",
+        "aliases": ["Slim", "slim"],
+        "extensions": [".slim"]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "@types/vscode": "^1.75.0",
+    "esbuild": "^0.27.3",
+    "typescript": "^5.0.0"
+  }
+}

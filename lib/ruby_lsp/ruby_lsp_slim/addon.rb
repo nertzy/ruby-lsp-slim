@@ -8,15 +8,17 @@ module RubyLsp
   module RubyLspSlim
     class Addon < ::RubyLsp::Addon
       def activate(global_state, outgoing_queue)
-        # Patch Store to recognize .slim files and create SlimDocuments
-        unless RubyLsp::Store.ancestors.include?(StorePatch)
-          RubyLsp::Store.prepend(StorePatch)
-        end
+        @outgoing_queue = outgoing_queue
 
-        # Patch Server to recognize "slim" language ID
-        unless RubyLsp::Server.ancestors.include?(ServerPatch)
-          RubyLsp::Server.prepend(ServerPatch)
-        end
+        RubyLsp::Store.prepend(StorePatch) unless RubyLsp::Store.ancestors.include?(StorePatch)
+        RubyLsp::Server.prepend(ServerPatch) unless RubyLsp::Server.ancestors.include?(ServerPatch)
+
+        register_slim_capability if global_state.client_capabilities.supports_watching_files
+
+        outgoing_queue << Notification.window_log_message(
+          "[Ruby LSP Slim] Addon v#{::RubyLspSlim::VERSION} activated",
+          type: Constant::MessageType::INFO
+        )
       end
 
       def deactivate; end
@@ -28,23 +30,59 @@ module RubyLsp
       def version
         ::RubyLspSlim::VERSION
       end
+
+      private
+
+      def register_slim_capability
+        registration = Request.new(
+          id: "ruby-lsp-slim-register",
+          method: "client/registerCapability",
+          params: Interface::RegistrationParams.new(
+            registrations: [
+              Interface::Registration.new(
+                id: "ruby-lsp-slim-text-sync",
+                method: "textDocument/didOpen",
+                register_options: Interface::TextDocumentRegistrationOptions.new(
+                  document_selector: [
+                    { language: "slim" }
+                  ]
+                )
+              ),
+              Interface::Registration.new(
+                id: "ruby-lsp-slim-did-change",
+                method: "textDocument/didChange",
+                register_options: Interface::TextDocumentChangeRegistrationOptions.new(
+                  document_selector: [
+                    { language: "slim" }
+                  ],
+                  sync_kind: Constant::TextDocumentSyncKind::INCREMENTAL
+                )
+              ),
+              Interface::Registration.new(
+                id: "ruby-lsp-slim-did-close",
+                method: "textDocument/didClose",
+                register_options: Interface::TextDocumentRegistrationOptions.new(
+                  document_selector: [
+                    { language: "slim" }
+                  ]
+                )
+              )
+            ]
+          )
+        )
+        @outgoing_queue << registration
+      end
     end
 
     module StorePatch
       def get(uri)
-        document = super
-        return document unless document.nil?
+        super
       rescue Store::NonExistingDocumentError
         path = uri.to_standardized_path
-        raise unless path
+        raise unless path && File.extname(path) == ".slim" && File.file?(path)
 
-        ext = File.extname(path)
-        if ext == ".slim"
-          set(uri: uri, source: File.binread(path), version: 0, language_id: :slim)
-          return @state[uri.to_s]
-        end
-
-        raise
+        set(uri: uri, source: File.binread(path), version: 0, language_id: :slim)
+        @state[uri.to_s]
       end
 
       def set(uri:, source:, version:, language_id:)
@@ -53,7 +91,7 @@ module RubyLsp
             source: source,
             version: version,
             uri: uri,
-            global_state: @global_state,
+            global_state: @global_state
           )
         else
           super
@@ -64,31 +102,27 @@ module RubyLsp
     module ServerPatch
       def text_document_did_open(message)
         text_document = message.dig(:params, :textDocument)
+        uri = text_document[:uri]
+        path = uri.is_a?(URI::Generic) ? uri.to_standardized_path : uri.to_s
 
-        if text_document[:languageId] == "slim"
-          text_document[:languageId] = "slim"
+        if text_document[:languageId] == "slim" || (path && File.extname(path) == ".slim")
           @store.set(
-            uri: text_document[:uri],
+            uri: uri,
             source: text_document[:text],
             version: text_document[:version],
-            language_id: :slim,
+            language_id: :slim
           )
 
-          document = @store.get(text_document[:uri])
-          if document.past_expensive_limit? && text_document[:uri].scheme == "file"
-            log_message = <<~MESSAGE
-              The file #{text_document[:uri].path} is too long. For performance reasons, semantic highlighting and
-              diagnostics will be disabled.
-            MESSAGE
-
+          document = @store.get(uri)
+          if document.past_expensive_limit? && uri.respond_to?(:scheme) && uri.scheme == "file"
             send_message(
               Notification.new(
                 method: "window/logMessage",
                 params: Interface::LogMessageParams.new(
                   type: Constant::MessageType::WARNING,
-                  message: log_message,
-                ),
-              ),
+                  message: "The file #{path} is too long. Semantic highlighting and diagnostics will be disabled."
+                )
+              )
             )
           end
         else

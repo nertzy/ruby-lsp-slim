@@ -1,0 +1,17 @@
+doctype html
+html
+  head
+    title My Slim App
+    meta charset="utf-8"
+  body
+    header
+      nav
+        ul
+          li
+            a href="/" Home
+          li
+            a href="/users" Users
+    main
+      == yield
+    footer
+      p Copyright #{Time.now.year} My App

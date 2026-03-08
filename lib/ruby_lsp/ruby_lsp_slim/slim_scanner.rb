@@ -57,6 +57,20 @@ module RubyLsp
         end
 
         case char
+        when "/"
+          # Slim comment — skip as host language
+          consume_to_eol_as_host
+          return
+        when "|", "'"
+          # Text block — treat as text content (supports interpolation)
+          push_host(char)
+          @current_pos += 1
+          if @current_pos < @source.length && @source[@current_pos] == " "
+            push_host(" ")
+            @current_pos += 1
+          end
+          scan_text_content
+          return
         when "-"
           # Control code: - ruby_code
           push_host(" ")
@@ -101,7 +115,7 @@ module RubyLsp
         else
           # Check for ruby: filter
           if looking_at?("ruby:")
-            remaining = @source[@current_pos + 5..]
+            remaining = @source[(@current_pos + 5)..]
             if remaining.nil? || remaining.empty? || remaining.start_with?("\n") || remaining.start_with?("\r")
               # This is a ruby: filter line
               @in_ruby_filter = true
@@ -220,7 +234,7 @@ module RubyLsp
 
       def scan_interpolation
         brace_depth = 1
-        while @current_pos < @source.length && brace_depth > 0
+        while @current_pos < @source.length && brace_depth.positive?
           char = @source[@current_pos]
 
           case char
@@ -230,13 +244,12 @@ module RubyLsp
             @current_pos += 1
           when "}"
             brace_depth -= 1
-            if brace_depth == 0
+            if brace_depth.zero?
               push_host(" ") # closing }
-              @current_pos += 1
             else
               push_ruby(char)
-              @current_pos += 1
             end
+            @current_pos += 1
           when "\n"
             push_newline
             @current_pos += 1
@@ -260,6 +273,34 @@ module RubyLsp
           char = @source[@current_pos]
 
           case char
+          when "\\"
+            # Backslash continuation: if followed by newline, keep scanning Ruby on next line
+            if @current_pos + 1 < @source.length && @source[@current_pos + 1] == "\n"
+              push_ruby(char)
+              @current_pos += 1
+              push_newline
+              @current_pos += 1
+              # Continue scanning Ruby on the next line (skip indentation)
+              while @current_pos < @source.length && [" ", "\t"].include?(@source[@current_pos])
+                push_ruby(" ")
+                @current_pos += 1
+              end
+            elsif @current_pos + 2 < @source.length && @source[@current_pos + 1] == "\r" &&
+                  @source[@current_pos + 2] == "\n"
+              push_ruby(char)
+              @current_pos += 1
+              push_newline_cr
+              @current_pos += 1
+              push_newline
+              @current_pos += 1
+              while @current_pos < @source.length && [" ", "\t"].include?(@source[@current_pos])
+                push_ruby(" ")
+                @current_pos += 1
+              end
+            else
+              push_ruby(char)
+              @current_pos += 1
+            end
           when "\n"
             push_newline
             @current_pos += 1
@@ -284,7 +325,7 @@ module RubyLsp
       def consume_whitespace
         while @current_pos < @source.length
           char = @source[@current_pos]
-          break unless char == " " || char == "\t"
+          break unless [" ", "\t"].include?(char)
 
           push_host(char)
           @current_pos += 1
@@ -318,11 +359,11 @@ module RubyLsp
 
       def push_ruby(char)
         @ruby << char
-        @host_language << " " * char.length
+        @host_language << (" " * char.length)
       end
 
       def push_host(char)
-        @ruby << " " * char.length
+        @ruby << (" " * char.length)
         @host_language << char
       end
 
