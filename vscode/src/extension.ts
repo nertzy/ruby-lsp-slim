@@ -3,9 +3,22 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  type StaticFeature,
 } from "vscode-languageclient/node";
 
 let client: LanguageClient | undefined;
+
+const slimCapabilities: StaticFeature = {
+  getState: () => ({ kind: "static" }),
+  fillClientCapabilities() {},
+  preInitialize(capabilities) {
+    // Ruby LSP advertises range formatting independently of enabledFeatures.
+    // Filter it before this dedicated client's providers are registered.
+    delete capabilities.documentRangeFormattingProvider;
+  },
+  initialize() {},
+  clear() {},
+};
 
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -45,24 +58,17 @@ export async function activate(context: vscode.ExtensionContext) {
       maxRestartCount: 5,
     },
     initializationOptions: {
-      enabledFeatures: {
-        hover: true,
-        definition: true,
-        completion: true,
-        documentSymbols: true,
-        semanticHighlighting: true,
-        diagnostics: true,
-        workspaceSymbol: true,
-        foldingRanges: true,
-        selectionRanges: true,
-        documentHighlights: true,
-        documentLink: true,
-        codeLens: false,
-        formatting: false,
-        codeActions: false,
-        inlayHint: false,
-        onTypeFormatting: false,
-      },
+      // Arrays default unlisted features to off; object keys default to on.
+      enabledFeatures: [
+        "hover",
+        "definition",
+        "completion",
+        "documentSymbols",
+        "semanticHighlighting",
+        "diagnostics",
+        "workspaceSymbol",
+        "documentHighlights",
+      ],
     },
   };
 
@@ -70,8 +76,10 @@ export async function activate(context: vscode.ExtensionContext) {
     "rubyLspSlim",
     "Ruby LSP Slim",
     serverOptions,
-    clientOptions
+    clientOptions,
   );
+
+  client.registerFeature(slimCapabilities);
 
   try {
     await client.start();

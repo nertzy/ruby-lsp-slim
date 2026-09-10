@@ -8,8 +8,10 @@ A [Ruby LSP](https://github.com/Shopify/ruby-lsp) addon that provides language s
 - **Go-to-definition** — jump to method/class definitions from Slim templates
 - **Completion** — autocomplete Ruby methods and variables
 - **Document symbols** — outline view for Ruby code in templates
-- **Diagnostics** — syntax errors and warnings
+- **Diagnostics** — Slim and embedded Ruby syntax errors
 - **Semantic highlighting** — rich syntax coloring for embedded Ruby
+- **Document highlights** — highlight matching Ruby symbols in a template
+- **References and constant rename** — mapped Ruby references and safe constant edits across templates
 
 ## Installation
 
@@ -29,11 +31,12 @@ Then run `bundle install`.
 
 Install the **Ruby LSP Slim** extension from the VS Code marketplace, or search for "Ruby LSP Slim" in the Extensions panel.
 
-The extension runs a dedicated Ruby LSP server for `.slim` files, so all standard Ruby LSP features work inside your templates.
+The extension runs a dedicated Ruby LSP server for `.slim` files. The supported features and current limitations are described below.
 
 ### 3. Restart VS Code
 
 After installing both the gem and extension, reload your VS Code window (`Cmd+Shift+P` → "Developer: Reload Window").
+
 
 ## Supported Slim syntax
 
@@ -42,12 +45,29 @@ After installing both the gem and extension, reload your VS Code window (`Cmd+Sh
 | Control code | `- x = 1` |
 | Output | `= link_to "Home", root_path` |
 | Unescaped output | `== raw_html` |
-| Tag output | `h1= title` |
+| Tag output | `h1= title` or `h1 = title` |
 | Interpolation | `p Hello #{user.name}` |
 | Ruby filter | `ruby:` block |
 | Comments | `/ comment` |
 | Text blocks | `\| text content` |
 | Backslash continuation | `- x = 1 + \` (continues next line) |
+
+Indentation closes Ruby blocks such as `if`/`else` and `each do`; explicit Slim `- end` statements are rejected, as they are by Slim itself. Syntax availability follows the installed Slim version.
+
+## Parsing and source locations
+
+The add-on uses Slim's parser and structural passes to produce Ruby-only source. A source map connects copied Ruby expressions to the original template and identifies synthetic code such as block endings. Ruby LSP analyzes the generated document; request positions, response ranges, and edits are translated at the boundary. The original template remains the editable document.
+
+Edits require an exact mapping. An operation that would change synthetic code or cross omitted template text is rejected rather than approximated.
+
+### Current limitations
+
+- Incomplete or invalid templates receive current syntax diagnostics. Semantic features are temporarily unavailable until the template parses again; an older AST is never reused. This includes completion after an incomplete expression such as `user.`.
+- Diagnostics do not run Ruby linters or publish Prism warnings from generated code.
+- Reference search includes managed Slim documents, not every unopened template. Constant rename additionally checks workspace `.slim` files and fails without returning partial edits if a participating template is invalid, its scope is ambiguous, or an edit cannot be mapped safely. Rename retains Ruby LSP's indexed-constant scope; method and local-variable rename are not added.
+- External symbol definitions currently require UTF-16 position negotiation because of coordinate behavior in Ruby LSP's index. File-start links such as `require_relative` work with UTF-8, UTF-16, and UTF-32.
+- Slim formatting, code actions, folding, selection ranges, document links, code lenses, inlay hints, signature help, and type hierarchy are not yet adapted. These requests fail explicitly instead of returning generated-source coordinates. A shared server may still advertise them for Ruby files.
+- Foreign embedded engines and arbitrary third-party add-on coordinate conventions are not supported. The parser integration uses internal Slim hooks; compatibility tests cover the supported parser versions.
 
 ## Requirements
 

@@ -19,7 +19,9 @@ class IntegrationTest < Minitest::Test
 
     document = store.get(uri)
     assert_kind_of RubyLsp::RubyLspSlim::SlimDocument, document
-    assert_kind_of RubyLsp::ERBDocument, document
+    refute_kind_of RubyLsp::ERBDocument, document
+    assert_kind_of RubyLsp::RubyDocument, document.generated_document
+    refute_same document, document.generated_document
   end
 
   def test_store_still_creates_ruby_document_for_ruby
@@ -79,7 +81,7 @@ class IntegrationTest < Minitest::Test
   end
 
   def test_control_flow_produces_expected_ast_nodes
-    source = read_fixture("control_flow.slim")
+    source = read_fixture("control_flow.slim").delete_suffix("- end\n")
     uri = URI::Generic.from_path(path: "/fake/test.slim")
     document = RubyLsp::RubyLspSlim::SlimDocument.new(
       source: source,

@@ -24,8 +24,13 @@
     "languages": [
       {
         "id": "slim",
-        "aliases": ["Slim", "slim"],
-        "extensions": [".slim"]
+        "aliases": [
+          "Slim",
+          "slim"
+        ],
+        "extensions": [
+          ".slim"
+        ]
       }
     ]
   },
@@ -33,6 +38,7 @@
     "vscode:prepublish": "npm run build",
     "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "compile": "tsc -p ./",
+    "test": "node --test test/*.test.cjs",
     "watch": "tsc -watch -p ./"
   },
   "dependencies": {

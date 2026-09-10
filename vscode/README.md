@@ -21,8 +21,12 @@ end
 - **Go-to-definition** — jump to method/class definitions
 - **Completion** — autocomplete Ruby methods and variables
 - **Document symbols** — outline view for Ruby code
-- **Diagnostics** — syntax errors and warnings
+- **Diagnostics** — Slim and embedded Ruby syntax errors
 - **Semantic highlighting** — rich syntax coloring for embedded Ruby
+
+### Current limitations
+
+This dedicated client does not offer Slim formatting (including range and on-type formatting), folding, selection ranges, document links, signature help, type hierarchy, code actions, code lenses, or inlay hints. These features require Slim-aware source mapping before they can be enabled safely. Other Ruby LSP clients retain their own feature configuration.
 
 ## How it works
 
