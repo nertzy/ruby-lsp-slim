@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add conservative original-template folding for nested Slim tags, Ruby control and output blocks, and all parser-recognized filter containers.
 - Replace the handwritten scanner with Slim-backed Ruby projection and source mapping, fixing spaced tag output and indentation-based Ruby blocks.
 - Preserve template source locations through Ruby LSP requests, including Unicode and multiline Ruby normalization.
 - Report current syntax errors without crashing or reusing stale document state during edits.

@@ -172,6 +172,14 @@ class SlimDocumentTest < Minitest::Test
     assert_nil document.generated_document
   end
 
+  def test_snapshot_owns_current_fold_regions_and_edits_invalidate_them
+    document = create_document("div\n  section\n    p Hello\np Tail\n")
+
+    assert_equal([[0, 2], [1, 2]], document.snapshot.fold_regions.map { |region| [region.start_line, region.end_line] })
+    document.push_edits([{ text: "p Alone\n" }], version: 2)
+    assert_empty document.snapshot.fold_regions
+  end
+
   def test_edits_invalidate_original_version_caches_and_generated_ast
     document = create_document("- title = 1\n= title\n")
     original_ast = document.ast

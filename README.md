@@ -11,6 +11,7 @@ A [Ruby LSP](https://github.com/Shopify/ruby-lsp) addon that provides language s
 - **Diagnostics** — Slim and embedded Ruby syntax errors
 - **Semantic highlighting** — rich syntax coloring for embedded Ruby
 - **Document highlights** — highlight matching Ruby symbols in a template
+- **Folding** — collapse original Slim tags, Ruby blocks, and embedded filter containers
 - **References and constant rename** — mapped Ruby references and safe constant edits across templates
 
 ## Installation
@@ -60,14 +61,18 @@ The add-on uses Slim's parser and structural passes to produce Ruby-only source.
 
 Edits require an exact mapping. An operation that would change synthetic code or cross omitted template text is rejected rather than approximated.
 
+Folding ranges come directly from the original Slim structure. They cover multiline nested tags, indentation-delimited Ruby control and output blocks, and every embedded filter container recognized by the installed Slim parser. Filter bodies are opaque: their internal indentation does not create nested Slim folds, and trailing blank lines are excluded. Standalone comments, verbatim text, inline HTML, and attribute/header-only continuations do not create independent folds.
+
+Folding is best effort while editing. Embedded Ruby errors do not remove folds whose Slim structure is still known. If Slim itself reports a syntax error, only regions closed before the error are retained; open or uncertain regions are omitted rather than extended across malformed input.
+
 ### Current limitations
 
-- Incomplete or invalid templates receive current syntax diagnostics. Semantic features are temporarily unavailable until the template parses again; an older AST is never reused. This includes completion after an incomplete expression such as `user.`.
+- Incomplete or invalid templates receive current syntax diagnostics. Projection-dependent semantic features are temporarily unavailable until the template parses again; an older AST is never reused. This includes completion after an incomplete expression such as `user.`. Folding can remain available when Slim structure was established despite embedded Ruby errors.
 - Diagnostics do not run Ruby linters or publish Prism warnings from generated code.
 - Reference search includes managed Slim documents, not every unopened template. Constant rename additionally checks workspace `.slim` files and fails without returning partial edits if a participating template is invalid, its scope is ambiguous, or an edit cannot be mapped safely. Rename retains Ruby LSP's indexed-constant scope; method and local-variable rename are not added.
 - External symbol definitions currently require UTF-16 position negotiation because of coordinate behavior in Ruby LSP's index. File-start links such as `require_relative` work with UTF-8, UTF-16, and UTF-32.
-- Slim formatting, code actions, folding, selection ranges, document links, code lenses, inlay hints, signature help, and type hierarchy are not yet adapted. These requests fail explicitly instead of returning generated-source coordinates. A shared server may still advertise them for Ruby files.
-- Foreign embedded engines and arbitrary third-party add-on coordinate conventions are not supported. The parser integration uses internal Slim hooks; compatibility tests cover the supported parser versions.
+- Slim formatting, code actions, selection ranges, document links, code lenses, inlay hints, signature help, and type hierarchy are not yet adapted. These requests fail explicitly instead of returning generated-source coordinates. A shared server may still advertise them for Ruby files.
+- Ruby projection for foreign embedded engines and arbitrary third-party add-on coordinate conventions is not supported. Their parser-recognized containers can still fold opaquely. The parser integration uses internal Slim hooks; compatibility tests cover the supported parser versions.
 
 ## Requirements
 

@@ -3,13 +3,15 @@
 require "securerandom"
 require_relative "projection"
 require_relative "generated_document"
+require_relative "structure_collector"
 
 module RubyLsp
   module RubyLspSlim
     # The Store always contains editor text, never a generated document. Invalid
     # versions retain diagnostics but expose no semantic AST from an older edit.
     class SlimDocument < RubyLsp::Document
-      Snapshot = Struct.new(:source, :version, :projection, :generated_document, :failure, keyword_init: true)
+      Snapshot = Struct.new(:source, :version, :projection, :generated_document, :fold_regions, :failure,
+                            keyword_init: true)
 
       attr_reader :document_id
 
@@ -32,12 +34,14 @@ module RubyLsp
         @projection_mutex.synchronize do
           parse_projection
           Snapshot.new(source: @source, version: @version, projection: @projection,
-                       generated_document: @generated_document, failure: @failure).freeze
+                       generated_document: @generated_document, fold_regions: @fold_regions,
+                       failure: @failure).freeze
         end
       end
 
       def projection = snapshot.projection
       def generated_document = snapshot.generated_document
+      def fold_regions = snapshot.fold_regions
       def failure = snapshot.failure
       def parse_result = projection&.parse_result
       def ast = generated_document&.ast
@@ -100,6 +104,7 @@ module RubyLsp
         # never leave the last successful generated AST available to requests.
         clear_projection
         @needs_parsing = false
+        @fold_regions = StructureCollector.new(default_tag: "div").call(@source)
         @projection = Projection.new(@source)
         @parse_result = @projection.parse_result
         if @projection.valid?
@@ -117,7 +122,7 @@ module RubyLsp
       end
 
       def clear_projection
-        @projection = @generated_document = @parse_result = @failure = nil
+        @projection = @generated_document = @parse_result = @fold_regions = @failure = nil
       end
 
       def apply_edit(source, edit)

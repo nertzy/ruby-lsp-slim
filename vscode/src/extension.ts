@@ -68,6 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
         "diagnostics",
         "workspaceSymbol",
         "documentHighlights",
+        "foldingRanges",
       ],
     },
   };

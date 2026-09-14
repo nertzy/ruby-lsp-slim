@@ -23,10 +23,15 @@ end
 - **Document symbols** — outline view for Ruby code
 - **Diagnostics** — Slim and embedded Ruby syntax errors
 - **Semantic highlighting** — rich syntax coloring for embedded Ruby
+- **Folding** — collapse original Slim tags, Ruby blocks, and embedded filter containers
+
+Folding covers multiline nested tags, indentation-delimited Ruby control and output blocks, and every embedded filter container recognized by Slim. Filter bodies are opaque, and trailing blank lines are excluded. Standalone comments, verbatim text, inline HTML, and attribute/header-only continuations do not create independent folds.
+
+Folding is best effort for incomplete input: embedded Ruby errors preserve structurally known folds, while Slim syntax errors retain only regions closed before the error and omit open or uncertain regions.
 
 ### Current limitations
 
-This dedicated client does not offer Slim formatting (including range and on-type formatting), folding, selection ranges, document links, signature help, type hierarchy, code actions, code lenses, or inlay hints. These features require Slim-aware source mapping before they can be enabled safely. Other Ruby LSP clients retain their own feature configuration.
+This dedicated client does not offer Slim formatting (including range and on-type formatting), selection ranges, document links, signature help, type hierarchy, code actions, code lenses, or inlay hints. These features require Slim-aware source mapping before they can be enabled safely. Other Ruby LSP clients retain their own feature configuration.
 
 ## How it works
 

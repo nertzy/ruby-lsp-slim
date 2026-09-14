@@ -67,12 +67,27 @@ class ServerTest < Minitest::Test
 
   def test_unsupported_requests_fail_explicitly_without_generated_edits
     open_document("- Widget = 1\n")
-    %w[formatting rangeFormatting onTypeFormatting codeAction foldingRange selectionRange
+    %w[formatting rangeFormatting onTypeFormatting codeAction selectionRange
        documentLink codeLens inlayHint prepareTypeHierarchy].each do |method|
       error = request("textDocument/#{method}", expect_error: true)
       assert_equal RubyLsp::Constant::ErrorCodes::REQUEST_FAILED, error[:code], method
       assert_match(/Slim/, error[:message], method)
     end
+  end
+
+  def test_reader_loop_serves_current_non_ruby_filter_folding_ranges
+    @reader_thread = Thread.new { @server.start }
+    write(method: "textDocument/didOpen", params: {
+            textDocument: { uri: @uri.to_s, languageId: "slim", version: 1,
+                            text: "javascript:\n  alert(1)\n" }
+          })
+    assert_equal [{ startLine: 0, endLine: 1 }], wire_request("textDocument/foldingRange")
+
+    write(method: "textDocument/didChange", params: {
+            textDocument: { uri: @uri.to_s, version: 2 }, contentChanges: [{ text: "p Alone\n" }]
+          })
+    assert_empty wire_request("textDocument/foldingRange")
+    assert @reader_thread.alive?
   end
 
   def test_ruby_origin_cross_document_operations_reject_invalid_slim_without_disabling_safe_ruby_requests

@@ -12,6 +12,85 @@ class RequestAdapterTest < Minitest::Test
     @uri = URI("untitled:Adapter")
   end
 
+  def test_folding_ranges_are_original_sorted_minimal_objects
+    result = perform(document("div\n  section\n    p Hello\np Tail\n"), "foldingRange")
+
+    assert_equal [{ startLine: 0, endLine: 2 }, { startLine: 1, endLine: 2 }], result
+  end
+
+  def test_folding_ranges_deduplicate_captured_regions
+    document = document("div\n  p Body\n")
+    snapshot = document.snapshot
+    duplicate = Slim::FoldRegion.new(0, 1)
+    captured = snapshot.dup
+    captured.fold_regions = [duplicate, duplicate].freeze
+    captured.freeze
+    document.stub(:snapshot, captured) do
+      result = Slim::RequestAdapter.new(@state, document).perform("textDocument/foldingRange", {})
+      assert_equal [{ startLine: 0, endLine: 1 }], result
+    end
+  end
+
+  def test_folding_ranges_work_without_a_generated_document
+    ["javascript:\n  alert(1)\n", "css:\n  p {\n    color: red;\n  }\n"].each do |source|
+      document = document(source)
+      assert_nil document.generated_document
+      refute_empty perform(document, "foldingRange")
+    end
+  end
+
+  def test_folding_ranges_preserve_closed_regions_before_slim_errors
+    source = "div\n  p Body\np Tail\np(class=\n"
+
+    assert_equal [{ startLine: 0, endLine: 1 }], perform(document(source), "foldingRange")
+  end
+
+  def test_folding_ranges_survive_attributed_filter_mapping_diagnostics
+    document = document("javascript(type=\"module\"):\n  alert(1)\n")
+
+    assert_nil document.generated_document
+    assert_includes document.projection.diagnostics.map(&:message), "Unsupported Slim source normalization"
+    assert_equal [{ startLine: 0, endLine: 1 }], perform(document, "foldingRange")
+  end
+
+  def test_folding_ranges_survive_ruby_errors_and_valid_slim_continuations
+    assert_equal [{ startLine: 0, endLine: 1 }],
+                 perform(document("- if (\n  p Body\np Tail\n"), "foldingRange")
+    assert_equal [{ startLine: 0, endLine: 1 }, { startLine: 2, endLine: 4 }],
+                 perform(document("div\n  p Body\np Tail\n   p Child\n  p Invalid\n"), "foldingRange")
+  end
+
+  def test_folding_ranges_are_empty_for_invalid_or_flat_sources
+    ["\xff".b, "p Alone\r", "", "p Alone\n"].each do |source|
+      assert_empty perform(document(source), "foldingRange")
+    end
+  end
+
+  def test_folding_ranges_detect_stale_snapshots
+    document = document("div\n  p Body\n")
+    adapter = Slim::RequestAdapter.new(@state, document)
+    document.push_edits([{ text: "p Alone\n" }], version: 2)
+
+    assert_raises(Slim::RequestAdapter::StaleDocument) do
+      adapter.perform("textDocument/foldingRange", {})
+    end
+    assert_empty perform(document, "foldingRange")
+  end
+
+  def test_folding_ranges_reject_unexpected_collector_failures
+    document = document("div\n  p Body\n")
+    document.push_edits([{ text: "section\n  p Body\n" }], version: 2)
+    failure = ->(*) { raise "collector bug" }
+
+    RubyLsp::RubyLspSlim::StructureCollector.stub(:new, failure) do
+      _output, _error = capture_io do
+        assert_raises(Slim::RequestAdapter::UnsupportedRequest) do
+          perform(document, "foldingRange")
+        end
+      end
+    end
+  end
+
   def test_completion_at_eof_maps_replacement_and_resolve_preserves_it
     document = document("- title = 1\n= tit")
     item = perform(document, "completion", position: { line: 1, character: 5 }).find do |entry|

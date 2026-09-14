@@ -17,6 +17,7 @@ module RubyLsp
         "textDocument/definition" => :definition,
         "textDocument/documentHighlight" => :highlights,
         "textDocument/documentSymbol" => :symbols,
+        "textDocument/foldingRange" => :folding_ranges,
         "textDocument/semanticTokens/full" => :semantic_tokens,
         "textDocument/semanticTokens/full/delta" => :semantic_tokens,
         "textDocument/semanticTokens/range" => :semantic_tokens
@@ -29,6 +30,7 @@ module RubyLsp
         @version = @state.version
         @projection = @state.projection
         @generated = @state.generated_document
+        @fold_regions = @state.fold_regions
         @mapper = ResponseMapper.new(@projection, document.encoding) if @projection && positions_available?
       end
 
@@ -99,6 +101,12 @@ module RubyLsp
           data: @mapper.semantic_tokens(request.perform.data, requested_range: params[:range]) }
       end
 
+      def folding_ranges(_params)
+        @fold_regions.uniq { |region| [region.start_line, region.end_line] }.map do |region|
+          { startLine: region.start_line, endLine: region.end_line }
+        end
+      end
+
       def diagnostics
         return { kind: "full", items: [failure_diagnostic] } if @state.failure
 
@@ -117,6 +125,8 @@ module RubyLsp
           diagnostics
         elsif @state.failure
           raise UnsupportedRequest, "Slim projection failed; see document diagnostics and server log"
+        elsif operation == :folding_ranges
+          positions_available? ? folding_ranges(params) : []
         elsif @generated.nil? || (@document.past_expensive_limit? && operation == :semantic_tokens)
           empty_response(operation)
         else

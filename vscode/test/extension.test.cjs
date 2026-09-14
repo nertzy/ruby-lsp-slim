@@ -44,9 +44,17 @@ test("initialization uses an allowlist so new Ruby LSP features stay disabled", 
     clients: [client],
   } = await activateClient();
   const { enabledFeatures } = client.clientOptions.initializationOptions;
-  assert.ok(Array.isArray(enabledFeatures));
-  assert.ok(enabledFeatures.length > 0);
-  assert.ok(enabledFeatures.every((feature) => typeof feature === "string"));
+  assert.deepEqual(JSON.parse(JSON.stringify(enabledFeatures)), [
+    "hover",
+    "definition",
+    "completion",
+    "documentSymbols",
+    "semanticHighlighting",
+    "diagnostics",
+    "workspaceSymbol",
+    "documentHighlights",
+    "foldingRanges",
+  ]);
   assert.equal(new Set(enabledFeatures).size, enabledFeatures.length);
 });
 
@@ -62,6 +70,7 @@ test("native initialization keeps supported providers and omits unadapted featur
     "diagnosticProvider",
     "workspaceSymbolProvider",
     "documentHighlightProvider",
+    "foldingRangeProvider",
     "referencesProvider",
     "renameProvider",
   ]) {
@@ -74,7 +83,6 @@ test("native initialization keeps supported providers and omits unadapted featur
   });
   assert.equal(capabilities.positionEncoding, "utf-16");
   for (const provider of [
-    "foldingRangeProvider",
     "selectionRangeProvider",
     "documentLinkProvider",
     "signatureHelpProvider",
